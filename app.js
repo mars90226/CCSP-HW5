@@ -10,11 +10,11 @@ var flash = require('connect-flash');
 var mongoose = require('mongoose');
 var passport = require('passport');
 
-// require('./config/db'); // TODO [DB] : Connect to database
+require('./config/db'); // TODO [DB] : Connect to database
 // require('./config/passport'); // TODO [FB] : Passport configuration
 
 var app = express();
-// var Vote = mongoose.model('Vote'); // TODO [DB] : Get Vote model
+var Vote = mongoose.model('Vote'); // TODO [DB] : Get Vote model
 
 // all environments
 app.set('port', process.env.PORT || 3000);
@@ -26,7 +26,7 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.methodOverride());
 app.use(express.cookieParser(process.env.COOKIE_SECRET));
-app.use(express.session());
+app.use(express.session({ secret: 'ccsp hw5 secret' }));
 
 // https://github.com/jaredhanson/passport#middleware
 app.use(passport.initialize());
@@ -49,7 +49,7 @@ app.get('/', function(req, res){
 
 /* Stores vote option in session and invokes facebook authentication */
 app.post('/vote', function(req, res, next){
-  // Stores the voted option (conveted to number) into session
+  // Stores the voted option (converted to number) into session
   req.session.vote = +req.body.vote;
 
   res.redirect('/result');
@@ -93,21 +93,35 @@ app.get('/result', function(req, res){
     If the user already exists in the database, redirect her/him to '/'
   */
 
-  //
-  // var vote = new Vote({vote: vote, fbid: fbid});
-  // vote.save(function(err, newVote){
-  //   if( err ){
-  //     req.flash('info', "你已經投過票囉！");
-  //     return res.redirect('/');
-  //   }
-  //
-  //   ... ...
-  //
-       res.render('result', {
-         votes: [18.1, 12.5, 42.44445, 21.3, 1.3, 2.5, 1.85555] // Percentages
-       });
-  //
-  // });
+  
+  var vote = new Vote({vote: vote, fbid: fbid});
+  vote.save(function(err, newVote){
+    if( err ){
+      req.flash('info', "你已經投過票囉！");
+      return res.redirect('/');
+    }
+  
+    Vote.find(function(err, votes) {
+      if ( err ) {
+        console.error(err);
+        return res.redirect('/');
+      }
+
+      var votes_array = Array.apply(null, Array(7)).map(function() {return 0});
+      for (var i in votes) {
+        var choice = votes[i].vote;
+        votes_array[choice]++;
+      }
+      for (var i in votes_array) {
+        votes_array[i] *= 100;
+        votes_array[i] /= votes.length;
+      }
+
+      res.render('result', {
+        votes: votes_array // Percentages
+      });
+    });
+  });
 
 });
 
